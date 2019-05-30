@@ -1,4 +1,10 @@
+
+## User parameters ##
+
 PRODUCT = calc
+
+
+## Sources & objects ##
 
 SRCS = \
 	alloc_free.c \
@@ -6,29 +12,48 @@ SRCS = \
 	compute.c \
 	parser.c 
 
-OBJS = $(SRCS:.c=.o)
+OBJ_DIR = objs
+OBJS = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRCS))
 
 
-INCLUDES = -I./include
+## Search paths ##
 
+VPATH  = ./include
+VPATH += ./src
+
+
+## Build flags ##
+
+INCLUDES = $(addprefix -I, $(VPATH))
 
 CFLAGS = -std=c11 -Wall -pedantic
 LIBS   = -lm
 
 
+## Compiler & linker config ##
 
 CC = gcc
 LD = gcc
 
 
+## Main targets ##
+
 $(PRODUCT): $(OBJS)
-	@echo "LD -o $@ $^"
+	@echo "LD -o $@ $(notdir $^)"
 	@$(LD) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LIBS)
 
-%.o: %.c
-	@echo "CC -o $@ $<"
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+	@echo "CC -o $@ $(notdir $<)"
 	@$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ $< $(LIBS)
 
 
+## Miscellanous targets ##
+
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
 clean:
-	rm *.o
+	rm -rf $(OBJ_DIR)
+
+fclean: clean
+	rm $(PRODUCT)
