@@ -5,20 +5,20 @@
  * Allocator code: malloc memory and initializes the structures
 */
 
-function_t* new_function_t(uint8_t paramCnt)
+function_t* new_function_t(uint8_t argCnt)
 {
 	// Allocate memory
-	function_t* fun = malloc (sizeof(function_t) + paramCnt * sizeof(equation_t*));
+	function_t* fun = malloc (sizeof(function_t) + argCnt * sizeof(equation_t*));
 
 	// Initialize function name
 	for (int i = 0; i < 10; i++)
 		fun->name[i] = '\0';
 
 	// Initialize parameter pointers
-	fun->paramsCount = paramCnt;
+	fun->argCount = argCnt;
 
-	for (int i = 0; i < paramCnt; i++)
-		fun->params[i] = (equation_t*) NULL;
+	for (int i = 0; i < argCnt; i++)
+		fun->arguments[i] = (equation_t*) NULL;
 
 	// Return pointer to the caller
 	return fun;
@@ -59,9 +59,9 @@ equation_t* new_equation_t(void)
 void free_function_t(function_t* fun)
 {
 	// Free any parameters of this function
-	for (int i = 0; i < fun->paramsCount; i++)
+	for (int i = 0; i < fun->argCount; i++)
 	{
-		if (fun->params[i]) free_equation_t(fun->params[i]);
+		if (fun->arguments[i]) free_equation_t(fun->arguments[i]);
 	}
 
 	// Free the memory containing this structure

@@ -18,10 +18,10 @@ double compute_function(function_t* fun)
 	 * Functions with 1 argument
 	*/
 
-	assert(fun->paramsCount >= 1);
-	assert(fun->params[0] != NULL);
+	assert(fun->argCount >= 1);
+	assert(fun->arguments[0] != NULL);
 
-	double x = resolve_equation(fun->params[0]);
+	double x = resolve_equation(fun->arguments[0]);
 
 	// Trigonometric functions
 	if (compareName("cos"  )) return cos  (x);
@@ -74,10 +74,10 @@ double compute_function(function_t* fun)
 	 * Functions with 2 arguments
 	*/
 
-	assert(fun->paramsCount >= 2);
-	assert(fun->params[1] != NULL);
+	assert(fun->argCount >= 2);
+	assert(fun->arguments[1] != NULL);
 
-	double y = resolve_equation(fun->params[1]);
+	double y = resolve_equation(fun->arguments[1]);
 
 	// Trigonometric functions
 	if (compareName("atan2")) return atan2(x, y);

@@ -54,8 +54,8 @@ typedef struct equ_struct equation_t;
 typedef struct fun_struct
 {
 	char        name[10];
-	uint8_t     paramsCount;
-	equation_t* params[];
+	uint8_t     argCount;
+	equation_t* arguments[];
 }
 function_t;
 
