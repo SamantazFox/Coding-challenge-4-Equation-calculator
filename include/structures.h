@@ -5,6 +5,9 @@
 #include <stdint.h>
 
 
+#define FUNCTION_NAME_MAXLEN  10
+
+
 /*
  * ENUMERATES
 */
@@ -53,7 +56,7 @@ typedef struct equ_struct equation_t;
 
 typedef struct fun_struct
 {
-	char        name[10];
+	char        name[FUNCTION_NAME_MAXLEN];
 	uint8_t     argCount;
 	equation_t* arguments[];
 }
