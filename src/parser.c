@@ -1,21 +1,11 @@
 #include "parser.h"
 
 #include "charcmp.h"
-#include "stdbool.h"
 #include "assert.h"
 
 
 #define min(a,b) ((a<b) ? a : b)
 #define max(a,b) ((a>b) ? a : b)
-
-
-typedef struct
-{
-	unsigned int start;
-	unsigned int stop;
-	bool exists;
-}
-range_t;
 
 
 range_t searchParenthesis(char* buf, size_t len)
@@ -74,15 +64,33 @@ size_t strnfind(char* buf, int len, const char item)
 }
 
 
-equation_t* parseEquation(char* stringToParse, size_t stringLen)
+equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 {
+	// Remove extra parenthesis (e.g: '((x))' => 'x' ) around equation,
+	// then compute string length from range given as arg #2
+	// (we add one because we want to include both start and stop)
+	if (rangeToParse.start > rangeToParse.stop)
+	{
+		ERROR("Invalid range: start = %u / stop = %u\n",
+			rangeToParse.start,
+			rangeToParse.stop
+		);
+		return NULL;
+	}
+
+	size_t stringLen = (size_t) (rangeToParse.stop - rangeToParse.start + 1);
+
+	if (stringLen == 0)
+	{
+		ERROR("Invalid length (0) when parsing equation '%s'\n", stringToParse);
+		return NULL;
+	}
+
+	// copy the sub-equation string to new buffer
+	char* buffer = strsafecpy(stringToParse + rangeToParse.start, stringLen);
+
 	// Init the returned pointer with an empty structure
 	equation_t* ret = new_equation_t();
-
-	// Copy sub-equation string to new buffer
-	char buffer[stringLen+1];
-	strncpy(buffer, stringToParse, stringLen);
-	buffer[stringLen] = '\0';
 
 
 	// Determine what is the closest element between '+', '-', '*' and '/'
@@ -121,7 +129,8 @@ equation_t* parseEquation(char* stringToParse, size_t stringLen)
 		else
 		{
 			ret->elemA.type     = operand_type__FUNCTION;
-			ret->elemA.function = parseFunction(buffer, stringLen);
+			ret->elemA.function = parseFunction(buffer, subEqRange);
+			ret->elemA.function = NULL;
 			return ret;
 		}
 	}
@@ -139,11 +148,14 @@ equation_t* parseEquation(char* stringToParse, size_t stringLen)
 
 		// Compute ranges
 		range_t r1 = { .start = 0, .stop = add_sub - 1 };
-		range_t r2 = { .start = add_sub + 1, .stop = stringLen };
+		range_t r2 = { .start = add_sub + 1, .stop = stringLen - 1 };
+
+		TRACE("Range 1: start = %d / stop = %d\n", r1.start, r1.stop);
+		TRACE("Range 2: start = %d / stop = %d\n", r2.start, r2.stop);
 
 		// Parse sub-equations
-		equation_t* eq1 = parseEquation(buffer + r1.start, r1.stop - r1.start + 1);
-		equation_t* eq2 = parseEquation(buffer + r2.start, r2.stop - r2.start + 1);
+		equation_t* eq1 = parseEquation(buffer, r1);
+		equation_t* eq2 = parseEquation(buffer, r2);
 
 		// Fill return structure
 		ret->elemA.nestedEq = eq1; ret->elemA.type = operand_type__NESTED_EQ;
@@ -166,11 +178,14 @@ equation_t* parseEquation(char* stringToParse, size_t stringLen)
 
 		// Compute ranges
 		range_t r1 = { .start = 0, .stop = mul_div - 1 };
-		range_t r2 = { .start = mul_div + 1, .stop = stringLen };
+		range_t r2 = { .start = mul_div + 1, .stop = stringLen - 1 };
+
+		TRACE("Range 1: start = %d / stop = %d\n", r1.start, r1.stop);
+		TRACE("Range 2: start = %d / stop = %d\n", r2.start, r2.stop);
 
 		// Parse sub-equations
-		equation_t* eq1 = parseEquation(buffer + r1.start, r1.stop - r1.start);
-		equation_t* eq2 = parseEquation(buffer + r2.start, r2.stop - r2.start);
+		equation_t* eq1 = parseEquation(buffer, r1);
+		equation_t* eq2 = parseEquation(buffer, r2);
 
 		// Fill return structure
 		ret->elemA.nestedEq = eq1; ret->elemA.type = operand_type__NESTED_EQ;
@@ -184,13 +199,31 @@ equation_t* parseEquation(char* stringToParse, size_t stringLen)
 }
 
 
-function_t* parseFunction(char* stringToParse, size_t stringLen)
+function_t* parseFunction(char* stringToParse, range_t rangeToParse)
 {
+	// Remove extra parenthesis (e.g: '((x))' => 'x' ) around equation,
+	// then compute string length from range given as arg #2
+	// (we add one because we want to include both start and stop)
+	if (rangeToParse.start > rangeToParse.stop)
+	{
+		ERROR("Invalid range: start = %u / stop = %u",
+			rangeToParse.start,
+			rangeToParse.stop
+		);
+		return NULL;
+	}
+
+	size_t stringLen = (size_t) (rangeToParse.stop - rangeToParse.start + 1);
+
+	if (stringLen == 0)
+	{
+		ERROR("Invalid length (0) when parsing function '%s'", stringToParse);
+		return NULL;
+	}
+
 	// Copy sub-equation string to new buffer
 	// Then replace surrounding parenthesis with '\0'
-	char* buffer = strsafecpy(stringToParse, stringLen);
-
-	TRACE("Function: %s\n", buffer);
+	char* buffer = strsafecpy(stringToParse + rangeToParse.start, stringLen);
 
 	char* begP = strnchrf(buffer, stringLen, '('); if (begP) *begP = '\0';
 	char* endP = strnchrl(buffer, stringLen, ')'); if (endP) *endP = '\0';
@@ -238,7 +271,9 @@ function_t* parseFunction(char* stringToParse, size_t stringLen)
 	for (int i = 0; i < argsCounter; i++)
 	{
 		INFO("  Arg %d: %s\n", i, args[i]);
-		ret->arguments[i] = parseEquation(args[i], strlen(args[i]));
+
+		range_t argumentRange = { .start = 0, .stop = strlen(args[i]) - 1 };
+		ret->arguments[i] = parseEquation(args[i], argumentRange);
 	}
 
 	// Cleanup needed stuff, then return the structure pointer

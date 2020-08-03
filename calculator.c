@@ -33,7 +33,7 @@ int main(int argc, char const *argv[])
 	{
 		fprintf(stderr, "Usage: %s [equation]\n", argv[0]);
 		return 0;
-	} 
+	}
 
 	const char* equation = argv[1];
 	size_t equationLen = strlen(equation);
@@ -41,7 +41,8 @@ int main(int argc, char const *argv[])
 
 	// Validate equation string while copying it to new buffer
 	// Also strip spaces/tabs from the equation string
-	char buffer[equationLen];
+	char buffer[equationLen+1];
+	buffer[equationLen] = '\0';
 	int counter = 0;
 
 	int nestedEquations    = 0;
@@ -77,6 +78,9 @@ int main(int argc, char const *argv[])
 	buffer[counter] = '\0';
 	INFO("Input equation: %s\n", buffer);
 
+	// Parse the equation
+	range_t fullRange = { .start = 0, .stop = strlen(buffer) - 1 };
+	equation_t* eq = parseEquation(buffer, fullRange);
 
 	equation_t* eq = parseEquation(buffer, counter);
 	double result = 0;

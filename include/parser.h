@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "print.h"
 
@@ -13,11 +14,25 @@
 
 
 /*
+ *
+ * DATA STRUCURES
+*/
+
+typedef struct
+{
+	unsigned int start;
+	unsigned int stop;
+	bool exists;
+}
+range_t;
+
+
+/*
  * Forward declarations
 */
 
-extern equation_t* parseEquation(char* stringToParse, size_t stringLen);
-extern function_t* parseFunction(char* stringToParse, size_t stringLen);
+extern equation_t* parseEquation(char* stringToParse, range_t rangeToParse);
+extern function_t* parseFunction(char* stringToParse, range_t rangeToParse);
 
 
 #endif  /* !__PARSER_H__ */
