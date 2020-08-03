@@ -159,13 +159,13 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 			if (containsDot)
 			{
 				// Number is a double
-				ret->elemA.subtype = operand_subtype__INT;
+				ret->elemA.subtype = operand_subtype__DOUBLE;
 				ret->elemA.dValue = atof( (const char*) buffer );
 			}
 			else
 			{
 				// Number is an integer
-				ret->elemA.subtype = operand_subtype__DOUBLE;
+				ret->elemA.subtype = operand_subtype__INT;
 				ret->elemA.iValue = atol( (const char*) buffer );
 			}
 
