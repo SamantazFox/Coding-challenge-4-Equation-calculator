@@ -20,6 +20,13 @@ static inline short int isMathConst(char c)
 	return c == 'e' || c == 'i' || c == 'x';
 }
 
+
+static inline short int isNumber(char c)
+{
+	return isdigit(c) || c == '.';
+}
+
+
 static inline short int isValidChar(char c)
 {
 	return isalnum(c) || isMathBase(c) || isMathSpecial(c) ||

@@ -125,29 +125,74 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 	// Easiest case: Nothing was found
 	if (!has_any)
 	{
-		// Search for a series of parenthesis
-		range_t subEqRange = searchParenthesis(buffer, stringLen);
+		// Is it a valid number ?
+		bool containsDot = false;
+		bool validNumber = true;
 
-		if (!subEqRange.exists)
+		for (int i = 0; i < stringLen; i++)
 		{
-			// Parse the number
-			ret->elemA.type    = operand_type__CONST;
-			ret->elemA.subtype = operand_subtype__DOUBLE;
-			ret->elemA.dValue  = 0;
+			char c = buffer[i];
 
-			// ret->elemB.type    = operand_type__CONST;
-			// ret->elemB.subtype = operand_subtype__DOUBLE;
-			// ret->elemB.dValue  = 0;
+			// If charater is not a digit or a dot '.', invalid number
+			if (!isNumber(c)) { validNumber = false; break; }
 
+			// Check if the number contains a dot (== double)
+			if (c == '.')
+			{
+				// If a dot was already detected: invalid number
+				// Otherwise turn on flag and continue
+				if (containsDot) { validNumber = false; break; }
+				else validNumber = true;
+			}
+		}
+
+		// Parse the number if possible
+		if (validNumber)
+		{
 			INFO("Found an number !! '%s'\n", buffer);
+
+			if (containsDot)
+			{
+				// Number is a double
+				ret->elemA.subtype = operand_subtype__INT;
+				ret->elemA.dValue = atof( (const char*) buffer );
+			}
+			else
+			{
+				// Number is an integer
+				ret->elemA.subtype = operand_subtype__DOUBLE;
+				ret->elemA.iValue = atol( (const char*) buffer );
+			}
+
+			ret->elemA.type = operand_type__CONST;
 			return ret;
 		}
 		else
 		{
-			ret->elemA.type     = operand_type__FUNCTION;
-			ret->elemA.function = parseFunction(buffer, subEqRange);
-			ret->elemA.function = NULL;
-			return ret;
+			// Search for a series of parenthesis
+			range_t subEqRange = searchParenthesis(buffer, stringLen);
+
+			if (subEqRange.exists)
+			{
+				range_t functionRange = { .start = 0, .stop = stringLen - 1 };
+
+				ret->elemA.type = operand_type__FUNCTION;
+				ret->elemA.function = parseFunction(buffer, functionRange);
+
+				return ret;
+			}
+			else
+			{
+				ERROR("Invalid input !! '%s'\n", buffer);
+
+				ret->elemA.type = operand_type__NONE;
+				ret->elemA.subtype = operand_subtype__NAN;
+
+				ret->elemB.type = operand_type__NONE;
+				ret->elemB.subtype = operand_subtype__NAN;
+
+				return NULL;
+			}
 		}
 	}
 
