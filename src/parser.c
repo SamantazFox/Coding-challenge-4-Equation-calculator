@@ -287,56 +287,98 @@ function_t* parseFunction(char* stringToParse, range_t rangeToParse)
 	// Then replace surrounding parenthesis with '\0'
 	char* buffer = strsafecpy(stringToParse + rangeToParse.start, stringLen);
 
-	char* begP = strnchrf(buffer, stringLen, '('); if (begP) *begP = '\0';
-	char* endP = strnchrl(buffer, stringLen, ')'); if (endP) *endP = '\0';
+	DEBUG("Function: '%s'\n", buffer);
 
-	// Save pointer to function's name and function's args
-	char* funName_raw = buffer;
-	char* funArgs_raw = buffer + (int) strlen(funName_raw) + 1;
 
-	TRACE("Fun: %s() | Args (raw): %s\n", funName_raw, funArgs_raw);
+	// Copy function name to it's own buffer
+	// We also have to keep track of arguments start/stop points
+	char functionName[FUNCTION_NAME_MAXLEN];
+	functionName[FUNCTION_NAME_MAXLEN-1] = '\0';
 
-	// Count function's arguments
+	range_t argumentsRange = { .start = 0, .stop = stringLen - 1 };
+
+	for (int i = 0; i < (FUNCTION_NAME_MAXLEN-1); i++)
+	{
+		char c = buffer[i];
+
+		if ( isalnum(c) )
+		{
+			functionName[i] = c;
+		}
+		else if (c == '(')
+		{
+			functionName[i] = '\0';
+
+			// Arguments are starting here, so mark it and use
+			// stripSurroundingParenthesis() to isolate the arguments
+			argumentsRange.start = i;
+			stripSurroundingParenthesis(buffer, &argumentsRange);
+			break;
+		}
+		else
+		{
+			ERROR("Invalid function '%s'", buffer);
+			free(buffer);
+			return NULL;
+		}
+	}
+
+
+	// Count and separate function's arguments
 	int argsCounter = 0;
-	char* args[5];
+	int positionCounter = argumentsRange.start;
+	int previousCommaPos = -1;
 
-	size_t argsLen_raw = strlen(funArgs_raw);
+	range_t argRanges[5] = { 0 };
 
-	args[argsCounter++] = funArgs_raw; // First argument starts at 0
-
-	while (argsCounter < 5)
+	do
 	{
 		// Search for comma(s) while avoiding sub-equations
-		int commaPos = strnfind(funArgs_raw, argsLen_raw, ',');
-		if (commaPos == -1) break;
-
-		// int prevPos = argPos[argsCounter-1];
+		int countToEnd = argumentsRange.stop - positionCounter;
+		int commaPos = strnfind(buffer + positionCounter, countToEnd, ',');
 
 		// Error handling
-		// if (commaPos == (prevPos+1))
-		// {
-		// 	ERROR("Empty argument detected in equation '%s'\n", buffer);
-		// 	exit(1);
-		// }
+		if (commaPos == (previousCommaPos+1))
+		{
+			ERROR("Empty argument detected in equation '%s'\n", buffer);
+			free(buffer);
+			return NULL;
+		}
+		previousCommaPos = commaPos;
 
-		// Save argement position and replace comma with 'nul' char
-		args[argsCounter++] = funArgs_raw + commaPos + 1;
-		funArgs_raw[commaPos] = '\0';
+		// Save argement's details
+		argRanges[argsCounter].start = positionCounter;
+
+		if (commaPos != -1)
+		{
+			// Increment position counter to arrive at comma index,
+			// save this index - 1 as the end of argN,
+			// then increment position counter again to skip comma
+			positionCounter += commaPos;
+			argRanges[argsCounter++].stop = positionCounter - 1;
+			positionCounter++;
+		}
+		else
+		{
+			argRanges[argsCounter++].stop = argumentsRange.stop;
+			break;
+		}
+
 	}
+	while (argsCounter < 5);
+
+
+	TRACE("Function: %s(), Found %d args\n", functionName, argsCounter);
+
 
 	// Init the returned pointer with an empty structure
-	function_t* ret = new_function_t(argsCounter);
-
 	// Then, fill the structure
-	strncpy(ret->name, funName_raw, FUNCTION_NAME_MAXLEN);
+	function_t* ret = new_function_t(argsCounter);
+	strncpy(ret->name, functionName, FUNCTION_NAME_MAXLEN);
 
 	for (int i = 0; i < argsCounter; i++)
-	{
-		INFO("  Arg %d: %s\n", i, args[i]);
+		ret->arguments[i] = parseEquation(buffer, argRanges[i]);
 
-		range_t argumentRange = { .start = 0, .stop = strlen(args[i]) - 1 };
-		ret->arguments[i] = parseEquation(args[i], argumentRange);
-	}
 
 	// Cleanup needed stuff, then return the structure pointer
 	free(buffer);
