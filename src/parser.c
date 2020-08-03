@@ -121,6 +121,11 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 
 	bool has_any = (has_add || has_sub || has_mul || has_div);
 
+	if (has_add) TRACE("Found '+' at %d\n", idx_add);
+	if (has_sub) TRACE("Found '-' at %d\n", idx_sub);
+	if (has_mul) TRACE("Found '*' at %d\n", idx_mul);
+	if (has_div) TRACE("Found '/' at %d\n", idx_div);
+
 
 	// Easiest case: Nothing was found
 	if (!has_any)

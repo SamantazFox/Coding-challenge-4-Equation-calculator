@@ -127,6 +127,17 @@ double resolve_equation(equation_t* eq)
 			exit(1);
 		}
 	}
+	else
+	{
+		if (eq->elemA.subtype == operand_subtype__INT)
+			TRACE("A already computed: %li (int)\n", eq->elemA.iValue);
+
+		if (eq->elemA.subtype == operand_subtype__UINT)
+			TRACE("A already computed: %lu (uint)\n", eq->elemA.uValue);
+
+		if (eq->elemA.subtype == operand_subtype__DOUBLE)
+			TRACE("A already computed: %f (double)\n", eq->elemA.dValue);
+	}
 
 	// Check that A has a valid subtype and convert it to a double
 	double a;
@@ -167,6 +178,18 @@ double resolve_equation(equation_t* eq)
 			exit(1);
 		}
 	}
+	else
+	{
+		if (eq->elemA.subtype == operand_subtype__INT)
+			TRACE("B already computed: %li (int)\n", eq->elemA.iValue);
+
+		if (eq->elemA.subtype == operand_subtype__UINT)
+			TRACE("B already computed: %lu (uint)\n", eq->elemA.uValue);
+
+		if (eq->elemA.subtype == operand_subtype__DOUBLE)
+			TRACE("B already computed: %f (double)\n", eq->elemA.dValue);
+	}
+
 
 	// Check that B has a valid subtype and convert it to a double
 	double b;
