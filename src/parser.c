@@ -147,24 +147,24 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 				// If a dot was already detected: invalid number
 				// Otherwise turn on flag and continue
 				if (containsDot) { validNumber = false; break; }
-				else validNumber = true;
+				else containsDot = true;
 			}
 		}
 
 		// Parse the number if possible
 		if (validNumber)
 		{
-			INFO("Found an number !! '%s'\n", buffer);
-
 			if (containsDot)
 			{
 				// Number is a double
+				INFO("Found an double !! '%s'\n", buffer);
 				ret->elemA.subtype = operand_subtype__DOUBLE;
 				ret->elemA.dValue = atof( (const char*) buffer );
 			}
 			else
 			{
 				// Number is an integer
+				INFO("Found an integer !! '%s'\n", buffer);
 				ret->elemA.subtype = operand_subtype__INT;
 				ret->elemA.iValue = atol( (const char*) buffer );
 			}
