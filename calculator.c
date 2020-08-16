@@ -18,6 +18,7 @@
 #include <ctype.h>
 
 #include "print.h"
+loglvl_e loglevel = level_ERROR; // global
 
 #include "structures.h"
 #include "alloc_free.h"
@@ -27,20 +28,65 @@
 #include "compute.h"
 
 
+void printUsage(void)
+{
+	fprintf(stderr, "Usage: calc [options] '<equation>'\n\n");
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "  -h    Displays this help mpessage\n");
+	fprintf(stderr, "  -v    Increase verbosity (can be used multiple times)\n");
+	fprintf(stderr, "  -q    Do not print errors\n");
+}
+
+
 int main(int argc, char const *argv[])
 {
-	if (argc <= 1)
+	const char* equation = NULL;
+
+	// Make sure we have the required arguments
+	if (argc < 1) { printUsage(); return 0; }
+
+	// Parse argumants
+	for (int i = (argc-1); i > 0; i--)
 	{
-		fprintf(stderr, "Usage: %s [equation]\n", argv[0]);
-		return 0;
+		// Command
+		if (strlen(argv[i]) == 2 && argv[i][0] == '-')
+		{
+			switch (argv[i][1])
+			{
+				case 'h': printUsage(); return 0;
+				case 'v': if (loglevel != level_NONE) loglevel++; break;
+				case 'q': loglevel = level_NONE; break;
+				default:
+					// Low probability, but can be an equation like '-1' or '-e'
+					if (argc == 2 && equation == NULL)
+						equation = argv[i];
+
+					// Otherwise bad input
+					else
+					{
+						fprintf(stderr, "Unknown option '%s'.\n\n", argv[i]);
+						printUsage();
+						return 2;
+					}
+			}
+		}
+
+		// Equation
+		else if (equation == NULL) equation = argv[i];
 	}
 
-	const char* equation = argv[1];
-	size_t equationLen = strlen(equation);
+	// We weren't given any equation
+	if (equation == NULL)
+	{
+		fprintf(stderr, "No equation given!\n\n");
+		printUsage();
+		return 3;
+	}
 
 
 	// Validate equation string while copying it to new buffer
 	// Also strip spaces/tabs from the equation string
+	size_t equationLen = strlen(equation);
 	char buffer[equationLen+1];
 	buffer[equationLen] = '\0';
 	int counter = 0;
@@ -82,12 +128,27 @@ int main(int argc, char const *argv[])
 	range_t fullRange = { .start = 0, .stop = strlen(buffer) - 1 };
 	equation_t* eq = parseEquation(buffer, fullRange);
 
-	equation_t* eq = parseEquation(buffer, counter);
-	double result = 0;
+	// Solve the equation
+	if (eq == NULL) return 1;
+	double result = resolve_equation(eq);
 
-	if (eq != NULL)
-		result  = resolve_equation(eq);
+	// Print result to temporary buffer
+	char display[60];
+	snprintf(display, 60, "%f", result);
 
-	INFO("Result: %f\n", result);
+	// Remove any trailing zeroes
+	uint8_t len = strlen(display);
+	for (int i = (len-1); i > 0; i--)
+	{
+		if(display[i] == '0')
+		{
+			display[i] = '\0';
+			if(display[i-1] == '.') { display[i-1] = '\0'; break; }
+		}
+		else break;
+	}
+
+	// Print result to user and exit
+	printf("%s\n", display);
 	return 0;
 }
