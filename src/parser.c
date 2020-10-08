@@ -206,7 +206,7 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 			}
 
 			ret->elemA.type = operand_type__CONST;
-			return ret;
+			goto ExitNominal;
 		}
 		else
 		{
@@ -220,21 +220,12 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 				ret->elemA.type = operand_type__FUNCTION;
 				ret->elemA.function = parseFunction(buffer, functionRange);
 
-				return ret;
-			}
-			else
-			{
-				ERROR("Invalid input !! '%s'\n", buffer);
-
-				ret->elemA.type = operand_type__NONE;
-				ret->elemA.subtype = operand_subtype__NAN;
-
-				ret->elemB.type = operand_type__NONE;
-				ret->elemB.subtype = operand_subtype__NAN;
-
-				return NULL;
+				goto ExitNominal;
 			}
 		}
+
+		// Input can't be parsed
+		goto InvalidInputError;
 	}
 
 	// Second case: there is an addition or a substraction
@@ -257,7 +248,10 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 
 		// Parse sub-equations
 		equation_t* eq1 = parseEquation(buffer, r1);
+		if (eq1 == NULL) goto SubFunctionError;
+
 		equation_t* eq2 = parseEquation(buffer, r2);
+		if (eq2 == NULL) { free_equation_t(eq1); goto SubFunctionError; }
 
 		// Fill return structure
 		ret->elemA.nestedEq = eq1; ret->elemA.type = operand_type__NESTED_EQ;
@@ -287,7 +281,10 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 
 		// Parse sub-equations
 		equation_t* eq1 = parseEquation(buffer, r1);
+		if (eq1 == NULL) goto SubFunctionError;
+
 		equation_t* eq2 = parseEquation(buffer, r2);
+		if (eq2 == NULL) { free_equation_t(eq1); goto SubFunctionError; }
 
 		// Fill return structure
 		ret->elemA.nestedEq = eq1; ret->elemA.type = operand_type__NESTED_EQ;
@@ -297,7 +294,18 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 		if(idx_div == mul_div) ret->operation = operation_type__DIV;
 	}
 
+
+ExitNominal:
 	return ret;
+
+
+InvalidInputError:
+	// Input can't be parsed
+	ERROR("Invalid input !! '%s'\n", buffer);
+
+SubFunctionError:
+	free_equation_t(ret);
+	return NULL;
 }
 
 
