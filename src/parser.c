@@ -8,6 +8,12 @@
 #define max(a,b) ((a>b) ? a : b)
 
 
+/************************************************\
+ *
+ * String find / search utils
+ *
+\************************************************/
+
 range_t searchParenthesis(char* buf, size_t len)
 {
 	int parenthesisCount = 0;
@@ -49,22 +55,6 @@ range_t searchParenthesis(char* buf, size_t len)
 	return subEq;
 }
 
-static void stripSurroundingParenthesis(char* string, range_t* range)
-{
-	for (int i = range->start, j = range->stop; i < j; i++, j--)
-	{
-		if (string[i] == '(' && string[j] == ')')
-		{
-			TRACE("Removing one (useless) pair of parenthesis!%c", '\n');
-
-			range->start++;
-			range->stop--;
-		}
-		else break;
-	}
-}
-
-
 size_t strnfind(char* buf, int len, const char item)
 {
 	size_t pos = -1;
@@ -94,6 +84,36 @@ size_t strnfind(char* buf, int len, const char item)
 	return pos;
 }
 
+
+
+/************************************************\
+ *
+ * String edit utils
+ *
+\************************************************/
+
+static void stripSurroundingParenthesis(char* string, range_t* range)
+{
+	for (int i = range->start, j = range->stop; i < j; i++, j--)
+	{
+		if (string[i] == '(' && string[j] == ')')
+		{
+			TRACE("Removing one (useless) pair of parenthesis!%c", '\n');
+
+			range->start++;
+			range->stop--;
+		}
+		else break;
+	}
+}
+
+
+
+/************************************************\
+ *
+ * Core parsing functions - Parse equation
+ *
+\************************************************/
 
 equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 {
@@ -280,6 +300,13 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 	return ret;
 }
 
+
+
+/************************************************\
+ *
+ * Core parsing functions - Parse function
+ *
+\************************************************/
 
 function_t* parseFunction(char* stringToParse, range_t rangeToParse)
 {
