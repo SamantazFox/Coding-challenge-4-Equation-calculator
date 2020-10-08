@@ -70,10 +70,26 @@ size_t strnfind(char* buf, int len, const char item)
 	size_t pos = -1;
 	range_t subRange = searchParenthesis(buf, len);
 
-	for (int i = 0; i < len; i++) if (buf[i] == item) { pos = i; break; }
+	for (int i = 0; i < len; i++)
+	{
+		TRACE("Looking for '%c' at relative index % 3d ('%c')\n", item, i, buf[i]);
+		if (buf[i] == item) { pos = i; break; }
+	}
 
+	// In the case where we found something, make sure that it is not nested
+	// in a set of parenthesis. If this is the case, search again, starting
+	// from that range's end, plus one (i.e: the character right after).
 	if (subRange.exists && pos >= subRange.start && pos <= subRange.stop)
-		return strnfind(buf + subRange.stop, len - 1 - subRange.stop, item);
+	{
+		TRACE("Subrange from %d to %d, skipping\n", subRange.start, subRange.stop);
+		pos = -1;
+
+		size_t newStart = subRange.stop + 1;
+		size_t pos2 = strnfind(buf + newStart, len - 1 - newStart, item);
+
+		// pos2 is relative to newStart, so don't forget to add it back here
+		if (pos2 != -1) pos = newStart + pos2;
+	}
 
 	return pos;
 }
