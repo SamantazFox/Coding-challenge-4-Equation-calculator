@@ -111,6 +111,70 @@ static void stripSurroundingParenthesis(char* string, range_t* range)
 
 /************************************************\
  *
+ * Parsing utils
+ *
+\************************************************/
+
+static operand_t parseNumber(char* buffer, size_t stringLen)
+{
+	bool isFloat = false;
+	bool isValid = true;
+
+	operand_t number = {
+		.type    = operand_type__CONST,
+		.subtype = operand_subtype__NAN,
+		.iValue  = 0
+	};
+
+	for (int i = 0; i < stringLen; i++)
+	{
+		char c = buffer[i];
+
+		// If charater is not a digit or a dot '.', invalid number
+		if (!isNumber(c)) { isValid = false; break; }
+
+		// Check if the number contains a dot (== double)
+		if (c == '.')
+		{
+			// If a dot was already detected: invalid number
+			// Otherwise turn on flag and continue
+			if (isFloat) { isValid = false; break; }
+			else isFloat = true;
+		}
+	}
+
+	if (isValid)
+	{
+		// Number is a double
+		if (isFloat)
+		{
+			INFO("Found an double !! '%.*s'\n", (int) stringLen, buffer);
+			number.subtype = operand_subtype__DOUBLE;
+			number.dValue = atof( (const char*) buffer );
+		}
+
+		// Number is an integer
+		else
+		{
+			INFO("Found an integer !! '%.*s'\n", (int) stringLen, buffer);
+			number.subtype = operand_subtype__INT;
+			number.iValue = atol( (const char*) buffer );
+		}
+	}
+
+	return number;
+}
+
+static operand_t parseNumberRange(char* buffer, range_t range)
+{
+	size_t length = range.stop - range.start + 1;
+	return parseNumber(buffer + range.start, length);
+}
+
+
+
+/************************************************\
+ *
  * Core parsing functions - Parse equation
  *
 \************************************************/
@@ -163,65 +227,38 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 	if (has_div) TRACE("Found '/' at %d\n", idx_div);
 
 
-	// Easiest case: Nothing was found
+	// Hardest case: Nothing was found
 	if (!has_any)
 	{
-		// Is it a valid number ?
-		bool containsDot = false;
-		bool validNumber = true;
+		// Search for a series of parenthesis
+		range_t subEqRange = searchParenthesis(buffer, stringLen);
 
-		for (int i = 0; i < stringLen; i++)
+		if (subEqRange.exists)
 		{
-			char c = buffer[i];
+			// Try to parse that as a function
+			range_t functionRange = { .start = 0, .stop = stringLen - 1 };
+			function_t* tryParseFunction = parseFunction(buffer, functionRange);
 
-			// If charater is not a digit or a dot '.', invalid number
-			if (!isNumber(c)) { validNumber = false; break; }
-
-			// Check if the number contains a dot (== double)
-			if (c == '.')
+			// Valid function
+			if (tryParseFunction != NULL)
 			{
-				// If a dot was already detected: invalid number
-				// Otherwise turn on flag and continue
-				if (containsDot) { validNumber = false; break; }
-				else containsDot = true;
-			}
-		}
-
-		// Parse the number if possible
-		if (validNumber)
-		{
-			if (containsDot)
-			{
-				// Number is a double
-				INFO("Found an double !! '%s'\n", buffer);
-				ret->elemA.subtype = operand_subtype__DOUBLE;
-				ret->elemA.dValue = atof( (const char*) buffer );
-			}
-			else
-			{
-				// Number is an integer
-				INFO("Found an integer !! '%s'\n", buffer);
-				ret->elemA.subtype = operand_subtype__INT;
-				ret->elemA.iValue = atol( (const char*) buffer );
-			}
-
-			ret->elemA.type = operand_type__CONST;
-			goto ExitNominal;
-		}
-		else
-		{
-			// Search for a series of parenthesis
-			range_t subEqRange = searchParenthesis(buffer, stringLen);
-
-			if (subEqRange.exists)
-			{
-				range_t functionRange = { .start = 0, .stop = stringLen - 1 };
-
 				ret->elemA.type = operand_type__FUNCTION;
-				ret->elemA.function = parseFunction(buffer, functionRange);
-
+				ret->elemA.function = tryParseFunction;
 				goto ExitNominal;
 			}
+
+			// Unable to parse input
+			goto InvalidInputError;
+		}
+
+
+		// Try to parse as a number if possible
+		operand_t tryParseNumber = parseNumber(buffer, stringLen);
+
+		if (tryParseNumber.subtype != operand_subtype__NAN)
+		{
+			ret->elemA = tryParseNumber;
+			goto ExitNominal;
 		}
 
 		// Input can't be parsed
