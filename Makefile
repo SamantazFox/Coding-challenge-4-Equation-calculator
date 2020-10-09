@@ -26,7 +26,7 @@ VPATH += ./src
 
 INCLUDES = $(addprefix -I, $(VPATH))
 
-CFLAGS = -std=c11 -Wall -pedantic
+CFLAGS = -std=c11 -Wall -pedantic -Wno-unused-function
 LIBS   = -lm
 
 
