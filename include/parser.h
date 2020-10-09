@@ -11,6 +11,7 @@
 #include "structures.h"
 #include "alloc_free.h"
 #include "string_utils.h"
+#include "functions.h"
 
 
 /*

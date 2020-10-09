@@ -67,9 +67,8 @@ typedef struct equ_struct equation_t;
 
 typedef struct fun_struct
 {
-	char        name[FUNCTION_NAME_MAXLEN];
-	uint8_t     argCount;
-	equation_t* arguments[];
+	const function_def_t* definition;
+	equation_t*           arguments[];
 }
 function_t;
 

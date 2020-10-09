@@ -398,59 +398,73 @@ function_t* parseFunction(char* stringToParse, range_t rangeToParse)
 
 	if (stringLen == 0)
 	{
-		ERROR("Invalid length (0) when parsing function '%s'", stringToParse);
+		ERROR("Invalid length (0) when parsing function%c", '\n');
 		return NULL;
 	}
 
-	// Copy sub-equation string to new buffer
-	// Then replace surrounding parenthesis with '\0'
+	// copy the sub-equation string to new buffer
 	char* buffer = strsafecpy(stringToParse + rangeToParse.start, stringLen);
 
 	DEBUG("Function: '%s'\n", buffer);
 
 
-	// Copy function name to it's own buffer
-	// We also have to keep track of arguments start/stop points
-	char functionName[FUNCTION_NAME_MAXLEN];
-	functionName[FUNCTION_NAME_MAXLEN-1] = '\0';
+	// Look up the arguments
+	range_t argumentsRange = searchParenthesis(buffer, stringLen);
 
-	range_t argumentsRange = { .start = 0, .stop = stringLen - 1 };
 
-	for (int i = 0; i < (FUNCTION_NAME_MAXLEN-1); i++)
+	if (argumentsRange.exists)
 	{
-		char c = buffer[i];
+		TRACE("Raw arguments: '%.*s'\n",
+			argumentsRange.stop - argumentsRange.start +1,
+			buffer + argumentsRange.start
+		);
+		stripSurroundingParenthesis(buffer, &argumentsRange);
 
-		if ( isalnum(c) )
+		// These checks must be done AFTER removeing the parenthesis
+		if (argumentsRange.start > argumentsRange.stop)
 		{
-			functionName[i] = c;
+			// Check for arguments emptyness '()'
+			ERROR("Invalid function '%s': no arguments found\n", buffer);
+			goto FormatError;
 		}
-		else if (c == '(')
+		else if (argumentsRange.stop != stringLen-2)
 		{
-			functionName[i] = '\0';
-
-			// Arguments are starting here, so mark it and use
-			// stripSurroundingParenthesis() to isolate the arguments
-			argumentsRange.start = i;
-			stripSurroundingParenthesis(buffer, &argumentsRange);
-			break;
+			// Check for arguments malformation '(...)garbage'
+			ERROR("Invalid function '%s': Malformed expression\n", buffer);
+			goto FormatError;
 		}
-		else
-		{
-			ERROR("Invalid function '%s'", buffer);
-			free(buffer);
-			return NULL;
-		}
+	}
+	else
+	{
+		ERROR("Invalid function '%s': no arguments found\n", buffer);
+		goto FormatError;
 	}
 
 
+	// Verify that this corresponds to a known function
+	range_t funcNameRange = { .start = 0, .stop = argumentsRange.start - 2 };
+	const function_def_t* definition = validateFunNameRange(buffer, funcNameRange);
+
+	if (definition == NULL)
+	{
+		ERROR("Unsupported function '%.*s'\n", funcNameRange.stop+1, buffer);
+		goto FormatError;
+	}
+
+	DEBUG("Function: %s(), Expecting %d arguments\n",
+		definition->name, definition->argc
+	);
+
+
+	// Init the returned pointer with an empty structure
+	function_t* ret = new_function_t(definition);
+
+
 	// Count and separate function's arguments
-	int argsCounter = 0;
 	int positionCounter = argumentsRange.start;
 	int previousCommaPos = -1;
 
-	range_t argRanges[5] = { 0 };
-
-	do
+	for (int i = 0; i < definition->argc; i++)
 	{
 		// Search for comma(s) while avoiding sub-equations
 		int countToEnd = argumentsRange.stop - positionCounter;
@@ -460,46 +474,70 @@ function_t* parseFunction(char* stringToParse, range_t rangeToParse)
 		if (commaPos == (previousCommaPos+1))
 		{
 			ERROR("Empty argument detected in equation '%s'\n", buffer);
-			free(buffer);
-			return NULL;
+			goto ArgumentError;
 		}
 		previousCommaPos = commaPos;
 
-		// Save argement's details
-		argRanges[argsCounter].start = positionCounter;
+		// Save argument's details
+		range_t argumentRange = {0};
 
 		if (commaPos != -1)
 		{
 			// Increment position counter to arrive at comma index,
 			// save this index - 1 as the end of argN,
 			// then increment position counter again to skip comma
+			argumentRange.start = positionCounter;
 			positionCounter += commaPos;
-			argRanges[argsCounter++].stop = positionCounter - 1;
+
+			argumentRange.stop = positionCounter - 1;
 			positionCounter++;
+
+			TRACE("\tArg #%d: %.*s\n", i + 1,
+				(int) argumentRange.stop - argumentRange.start + 1,
+				buffer + argumentRange.start
+			);
+
+			ret->arguments[i] = parseEquation(buffer, argumentRange);
 		}
-		else
+		else  // (commaPos == -1)
 		{
-			argRanges[argsCounter++].stop = argumentsRange.stop;
-			break;
+			if (i == (definition->argc - 1))
+			{
+				argumentRange.start = positionCounter;
+				argumentRange.stop  = argumentsRange.stop;
+
+				TRACE("\tArg #%d: %.*s\n", i + 1,
+					(int) argumentRange.stop - argumentRange.start + 1,
+					buffer + argumentRange.start
+				);
+
+				ret->arguments[i] = parseEquation(buffer, argumentRange);
+				break;
+			}
+			else
+			{
+				ERROR("Function: %s(), Found %d args, expected %d\n",
+					definition->name, i, definition->argc
+				);
+				goto ArgumentError;
+			}
 		}
 
 	}
-	while (argsCounter < 5);
-
-
-	TRACE("Function: %s(), Found %d args\n", functionName, argsCounter);
-
-
-	// Init the returned pointer with an empty structure
-	// Then, fill the structure
-	function_t* ret = new_function_t(argsCounter);
-	strncpy(ret->name, functionName, FUNCTION_NAME_MAXLEN);
-
-	for (int i = 0; i < argsCounter; i++)
-		ret->arguments[i] = parseEquation(buffer, argRanges[i]);
 
 
 	// Cleanup needed stuff, then return the structure pointer
-	free(buffer);
+	if (buffer) free(buffer);
 	return ret;
+
+FormatError:
+	// Ran when 'ret' is not set yet
+	if (buffer) free(buffer);
+	return NULL;
+
+ArgumentError:
+	// Ran once 'ret' has been allocated
+	if (buffer) free(buffer);
+	free_function_t(ret);
+	return NULL;
 }

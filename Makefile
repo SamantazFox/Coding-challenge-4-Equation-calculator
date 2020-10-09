@@ -10,7 +10,8 @@ SRCS = \
 	alloc_free.c \
 	calculator.c \
 	compute.c \
-	parser.c 
+	parser.c \
+	functions.c
 
 OBJ_DIR = objs
 OBJS = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRCS))

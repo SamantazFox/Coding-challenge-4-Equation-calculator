@@ -11,7 +11,7 @@
  * Forward declaration, because the function below use each other
 */
 
-extern function_t* new_function_t(uint8_t argCnt);
+extern function_t* new_function_t(const function_def_t* params);
 extern equation_t* new_equation_t(void);
 extern void free_function_t(function_t* fun);
 extern void free_equation_t(equation_t* eq);

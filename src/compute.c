@@ -8,7 +8,7 @@
 double compute_function(function_t* fun)
 {
 	// define a macro to compare the function name with 'str'
-	#define compareName(str) (strncmp(fun->name, str, sizeof(str)) == 0)
+	#define compareName(str) ( strcmp(fun->definition->name, str) == 0 )
 
 	// Make sure that the STD version is high enough to support all the
 	// function listed below
@@ -18,7 +18,7 @@ double compute_function(function_t* fun)
 	 * Functions with 1 argument
 	*/
 
-	assert(fun->argCount >= 1);
+	assert(fun->definition->argc >= 1);
 	assert(fun->arguments[0] != NULL);
 
 	double x = resolve_equation(fun->arguments[0]);
@@ -74,7 +74,7 @@ double compute_function(function_t* fun)
 	 * Functions with 2 arguments
 	*/
 
-	assert(fun->argCount >= 2);
+	assert(fun->definition->argc >= 2);
 	assert(fun->arguments[1] != NULL);
 
 	double y = resolve_equation(fun->arguments[1]);
@@ -99,7 +99,7 @@ double compute_function(function_t* fun)
 	 * Default target: display a warning and return 0
 	*/
 
-	WARN("Invalid function '%s'.", fun->name);
+	WARN("Invalid function '%s'", fun->definition->name);
 	return 0.0;
 }
 
