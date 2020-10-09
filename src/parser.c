@@ -1,6 +1,8 @@
 #include "parser.h"
 
 #include "charcmp.h"
+#include "functions.h"
+
 #include "assert.h"
 
 
@@ -169,6 +171,30 @@ static operand_t parseNumberRange(char* buffer, range_t range)
 {
 	size_t length = range.stop - range.start + 1;
 	return parseNumber(buffer + range.start, length);
+}
+
+
+static const function_def_t* validateFunName(char* buffer, size_t stringLen)
+{
+	// Extract substring from buffer, so strcmp can work with it
+	char localbuffer[stringLen+1];
+	strsafecpy2(localbuffer, buffer, stringLen);
+
+	// try to find this function's name in the supported list
+	for (int i = 0; i < known_functions_length_g; i++)
+	{
+		const function_def_t* temp = &known_functions_g[i];
+		if (strcmp(localbuffer, temp->name) == 0) return temp;
+	}
+
+	// Nothing was found
+	return NULL;
+}
+
+static const function_def_t* validateFunNameRange(char* buffer, range_t range)
+{
+	size_t length = range.stop - range.start + 1;
+	return validateFunName(buffer + range.start, length);
 }
 
 

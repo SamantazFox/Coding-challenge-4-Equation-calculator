@@ -49,6 +49,17 @@ operation_type_e;
  * DATA STRUCURES
 */
 
+typedef struct fun_def_struct
+{
+	char    name[FUNCTION_NAME_MAXLEN];
+	uint8_t argc;
+
+	double (*func_ptr1)(double);
+	double (*func_ptr2)(double, double);
+}
+function_def_t;
+
+
 typedef struct fun_struct function_t;
 typedef struct ope_struct operand_t;
 typedef struct equ_struct equation_t;
