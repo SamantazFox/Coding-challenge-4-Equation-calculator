@@ -76,6 +76,9 @@ size_t strnfind(char* buf, int len, const char item)
 		TRACE("Subrange from %d to %d, skipping\n", subRange.start, subRange.stop);
 		pos = -1;
 
+		// We're at the end of string, no need to continue!!
+		if (subRange.stop == len-1) return pos;
+
 		size_t newStart = subRange.stop + 1;
 		size_t pos2 = strnfind(buf + newStart, len - 1 - newStart, item);
 
