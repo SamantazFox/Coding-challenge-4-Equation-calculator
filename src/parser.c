@@ -275,6 +275,66 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 				goto ExitNominal;
 			}
 
+			// The subrange is maybe a 'n [times] (y)' type of equation,
+			// where the multiplication is implied.
+			else if (subEqRange.stop == stringLen - 1)
+			{
+				// Compute ranges
+				range_t r1 = functionRange;
+				range_t r2 = subEqRange;
+
+				DEBUG("Equation: %s\n", buffer);
+				TRACE("Range 1: start = %d / stop = %d\n", r1.start, r1.stop);
+				TRACE("Range 2: start = %d / stop = %d\n", r2.start, r2.stop);
+
+				// Parse range 1 as a number
+				ret->elemA = parseNumberRange(buffer, r1);
+
+				if (ret->elemA.subtype == operand_subtype__NAN)
+					goto InvalidInputError;
+
+				// Parse range 2 as a sub-equation
+				ret->elemB.nestedEq = parseEquation(buffer, r2);
+				ret->elemB.type = operand_type__NESTED_EQ;
+
+				if (ret->elemB.nestedEq == NULL)
+					goto InvalidInputError;
+
+				// Set operation type and exit
+				ret->operation = operation_type__TIMES;
+				goto ExitNominal;
+			}
+
+			// Same as above, but inverted (i.e '(y) [times] n')
+			// This is not conventional, but let's support it
+			else if (subEqRange.start == 0)
+			{
+				// Compute ranges
+				range_t r1 = subEqRange;
+				range_t r2 = { .start = subEqRange.stop+1, .stop = stringLen-1 };
+
+				DEBUG("Equation: %s\n", buffer);
+				TRACE("Range 1: start = %d / stop = %d\n", r1.start, r1.stop);
+				TRACE("Range 2: start = %d / stop = %d\n", r2.start, r2.stop);
+
+				// Parse range 1 as a sub-equation
+				ret->elemA.nestedEq = parseEquation(buffer, r1);
+				ret->elemA.type = operand_type__NESTED_EQ;
+
+				if (ret->elemA.nestedEq == NULL)
+					goto InvalidInputError;
+
+				// Parse range 2 as a number
+				ret->elemB = parseNumberRange(buffer, r2);
+
+				if (ret->elemB.subtype == operand_subtype__NAN)
+					goto InvalidInputError;
+
+				// Set operation type and exit
+				ret->operation = operation_type__TIMES;
+				goto ExitNominal;
+			}
+
 			// Unable to parse input
 			goto InvalidInputError;
 		}
