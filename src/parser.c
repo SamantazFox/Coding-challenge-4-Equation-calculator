@@ -98,16 +98,20 @@ size_t strnfind(char* buf, int len, const char item)
 
 static void stripSurroundingParenthesis(char* string, range_t* range)
 {
-	for (int i = range->start, j = range->stop; i < j; i++, j--)
-	{
-		if (string[i] == '(' && string[j] == ')')
-		{
-			TRACE("Removing one (useless) pair of parenthesis!%c", '\n');
+	// Search for an equation betwen parenthesis
+	char*   start    = string + range->start;
+	size_t  length   = range->stop - range->start + 1;
+	range_t subrange = searchParenthesis(start, length);
 
-			range->start++;
-			range->stop--;
-		}
-		else break;
+	// If such equation exists and is the same length as the string, we
+	// have an extra set of parenthesis to remove
+	if (subrange.exists && subrange.start == 0 && subrange.stop == length - 1)
+	{
+		TRACE("Removing one (useless) pair of parenthesis!%c", '\n');
+
+		range->start++;
+		range->stop--;
+		stripSurroundingParenthesis(string, range);
 	}
 }
 
