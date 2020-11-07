@@ -79,7 +79,7 @@ size_t strnfind(char* buf, int len, const char item)
 		if (subRange.stop == len-1) return pos;
 
 		size_t newStart = subRange.stop + 1;
-		size_t pos2 = strnfind(buf + newStart, len - 1 - newStart, item);
+		size_t pos2 = strnfind(buf + newStart, len - newStart, item);
 
 		// pos2 is relative to newStart, so don't forget to add it back here
 		if (pos2 != -1) pos = newStart + pos2;
