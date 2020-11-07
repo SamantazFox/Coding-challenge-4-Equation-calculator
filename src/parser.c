@@ -243,20 +243,22 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 
 	// Determine what is the closest element between '+', '-', '*' and '/'
 	// while taking care to avoid nested equations
-	int  idx_add, idx_sub, idx_mul, idx_div;
-	bool has_add, has_sub, has_mul, has_div;
+	int  idx_add, idx_sub, idx_mul, idx_div, idx_mod;
+	bool has_add, has_sub, has_mul, has_div, has_mod;
 
 	idx_add = strnfind(buffer, stringLen, '+'); has_add = (bool) (idx_add >= 0);
 	idx_sub = strnfind(buffer, stringLen, '-'); has_sub = (bool) (idx_sub >= 0);
 	idx_mul = strnfind(buffer, stringLen, '*'); has_mul = (bool) (idx_mul >= 0);
 	idx_div = strnfind(buffer, stringLen, '/'); has_div = (bool) (idx_div >= 0);
+	idx_mod = strnfind(buffer, stringLen, '%'); has_mod = (bool) (idx_mod >= 0);
 
-	bool has_any = (has_add || has_sub || has_mul || has_div);
+	bool has_any = (has_add || has_sub || has_mul || has_div || has_mod);
 
 	if (has_add) TRACE("Found '+' at %d\n", idx_add);
 	if (has_sub) TRACE("Found '-' at %d\n", idx_sub);
 	if (has_mul) TRACE("Found '*' at %d\n", idx_mul);
 	if (has_div) TRACE("Found '/' at %d\n", idx_div);
+	if (has_mod) TRACE("Found '%%' at %d\n", idx_mod);
 
 
 	// Hardest case: Nothing was found
@@ -422,6 +424,33 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 		if(idx_mul == mul_div) ret->operation = operation_type__TIMES;
 		if(idx_div == mul_div) ret->operation = operation_type__DIV;
 	}
+
+	// Fourth case: modulo operation
+	else if (has_mod)
+	{
+		DEBUG("Equation: %s\n", buffer);
+
+		// Compute ranges
+		range_t r1 = { .start = 0, .stop = idx_mod - 1 };
+		range_t r2 = { .start = idx_mod + 1, .stop = stringLen - 1 };
+
+		TRACE("Range 1: start = %d / stop = %d\n", r1.start, r1.stop);
+		TRACE("Range 2: start = %d / stop = %d\n", r2.start, r2.stop);
+
+		// Parse sub-equations
+		equation_t* eq1 = parseEquation(buffer, r1);
+		if (eq1 == NULL) goto SubFunctionError;
+
+		equation_t* eq2 = parseEquation(buffer, r2);
+		if (eq2 == NULL) { free_equation_t(eq1); goto SubFunctionError; }
+
+		// Fill return structure
+		ret->elemA.nestedEq = eq1; ret->elemA.type = operand_type__NESTED_EQ;
+		ret->elemB.nestedEq = eq2; ret->elemB.type = operand_type__NESTED_EQ;
+
+		ret->operation = operation_type__MOD;
+	}
+
 
 
 ExitNominal:
