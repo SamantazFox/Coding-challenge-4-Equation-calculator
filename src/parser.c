@@ -70,7 +70,7 @@ size_t strnfind(char* buf, int len, const char item)
 	// In the case where we found something, make sure that it is not nested
 	// in a set of parenthesis. If this is the case, search again, starting
 	// from that range's end, plus one (i.e: the character right after).
-	if (subRange.exists && pos >= subRange.start && pos <= subRange.stop)
+	if (subRange.exists && pos >= subRange.start)
 	{
 		TRACE("Subrange from %d to %d, skipping\n", subRange.start, subRange.stop);
 		pos = -1;
