@@ -47,6 +47,9 @@ $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
 	@echo "CC -o $@ $(notdir $<)"
 	@$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ $< $(LIBS)
 
+test:
+	@./tests/01_basic_parsing.sh
+
 
 ## Miscellanous targets ##
 
