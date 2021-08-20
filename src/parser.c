@@ -10,6 +10,22 @@
 #define max(a,b) ((a>b) ? a : b)
 
 
+#define PLUS  true
+#define MINUS false
+
+#define setIntValueAndType(s,v) \
+	if ((s) == MINUS) \
+	{ \
+		number.subtype = operand_subtype__INT; \
+		number.iValue = -(v); \
+	} \
+	else \
+	{ \
+		number.subtype = operand_subtype__UINT; \
+		number.uValue = (v); \
+	}
+
+
 /************************************************\
  *
  * String find / search utils
@@ -119,14 +135,19 @@ static void stripSurroundingParenthesis(char* string, range_t* range)
 
 /************************************************\
  *
- * Parsing utils
+ * Core parsing functions - Parse a single number
  *
 \************************************************/
 
 static operand_t parseNumber(char* buffer, size_t stringLen)
 {
-	bool isFloat = false;
-	bool isValid = true;
+	// Variable init
+	bool is_flt = false;
+	bool is_oct = false;
+	bool is_hex = false;
+	bool is_bin = false;
+
+	bool sign = PLUS;
 
 	operand_t number = {
 		.type    = operand_type__CONST,
@@ -134,27 +155,114 @@ static operand_t parseNumber(char* buffer, size_t stringLen)
 		.iValue  = 0
 	};
 
-	for (int i = 0; i < stringLen; i++)
+	size_t start = 0;
+
+	// Check sign
+	if (isSign(buffer[0]))
 	{
-		char c = buffer[i];
+		start++;
 
-		// If charater is not a digit or a dot '.', invalid number
-		if (!isNumber(c)) { isValid = false; break; }
+		if (buffer[0] == '-') sign = MINUS;
 
-		// Check if the number contains a dot (== double)
-		if (c == '.')
+		// Sanity check
+		if (start == stringLen) goto Invalid;
+	}
+
+	// Check for "0x" (hexa), "Oo" (octal) or "0b" (binary)
+	if ((stringLen - start) >= 3 && buffer[start++] == '0')
+	{
+		switch (buffer[start])
 		{
-			// If a dot was already detected: invalid number
-			// Otherwise turn on flag and continue
-			if (isFloat) { isValid = false; break; }
-			else isFloat = true;
+			case 'X': // Same as next case
+			case 'x': is_hex = true; start++; break;
+			case 'o': is_oct = true; start++; break;
+			case 'b': is_bin = true; start++; break;
+			default : break; // normal digit with leading zeroes
 		}
 	}
 
-	if (isValid)
+
+	// Check the number ourselfves, as strtol, atoi, atof, atol, etc...
+	// will return 0 if the string can't be parsed, and we can't know if
+	// that's because of an error or not.
+	if (is_hex)
 	{
+		// For now, only support integer hexadecimal
+		for (int i = start; i < stringLen; i++)
+			if (!isxdigit(buffer[i])) goto Invalid;
+
+		INFO("Found an hexadecimal integer !! '%.*s'\n", (int) stringLen, buffer);
+		number.subtype = operand_subtype__INT;
+		number.iValue = strtol( (const char*) buffer, NULL, 16);
+	}
+	else if (is_oct)
+	{
+		// Digits can only be 0 to 7
+		for (int i = start; i < stringLen; i++)
+			if (buffer[i] < '0' || buffer[i] > '7') goto Invalid;
+
+		INFO("Found an octal integer !! '%.*s'\n", (int) stringLen, buffer);
+		int64_t val = strtol( (const char*) (buffer + start), NULL, 8);
+		setIntValueAndType(sign, val);
+	}
+	else if (is_bin)
+	{
+		for (int i = start; i < stringLen; i++)
+			if (!isBinary(buffer[i])) goto Invalid;
+
+		INFO("Found a binary integer !! '%.*s'\n", (int) stringLen, buffer);
+		int64_t val = strtol( (const char*) (buffer + start), NULL, 2);
+		setIntValueAndType(sign, val);
+	}
+	else
+	{
+		// Maybe a float?
+		// steps (all optional, but #3 requires one of the previous):
+		// - 0 = [start]
+		// - 1 = integer part
+		// - 2 = '.' + decimal part
+		// - 3 = 'e' + exponent sign (optional) + exponent value (int)
+		unsigned int step = 0;
+
+		for (int i = start; i < stringLen; i++)
+		{
+			char c = buffer[i];
+
+			if (isdigit(c))
+			{
+				if (step == 0) step++;
+				continue;
+			}
+
+			else if (i+1 < stringLen)
+			{
+				if (c == '.' && step < 2)
+				{
+					step = 2;
+					is_flt = true;
+					continue;
+				}
+				else if (c == 'e' && (step == 1 || step == 2))
+				{
+					step = 3;
+					is_flt = true;
+
+					if (isSign(i+1))
+					{
+						// if there is a sign at EOL, that's a problem
+						if (stringLen == i+1) goto Invalid; else i++;
+					}
+
+					continue;
+				}
+			}
+
+			// else
+			goto Invalid;
+		}
+
 		// Number is a double
-		if (isFloat)
+		if (is_flt)
 		{
 			INFO("Found an double !! '%.*s'\n", (int) stringLen, buffer);
 			number.subtype = operand_subtype__DOUBLE;
@@ -165,11 +273,13 @@ static operand_t parseNumber(char* buffer, size_t stringLen)
 		else
 		{
 			INFO("Found an integer !! '%.*s'\n", (int) stringLen, buffer);
-			number.subtype = operand_subtype__INT;
-			number.iValue = atol( (const char*) buffer );
+			int64_t val = atol( (const char*) buffer );
+			setIntValueAndType(sign, val);
 		}
 	}
 
+
+Invalid:
 	return number;
 }
 
@@ -241,16 +351,19 @@ equation_t* parseEquation(char* stringToParse, range_t rangeToParse)
 	equation_t* ret = new_equation_t();
 
 
-	// Determine what is the closest element between '+', '-', '*' and '/'
+	// Determine what is the closest element between '+', '-', '*', '/' and '%'
 	// while taking care to avoid nested equations
 	int  idx_add, idx_sub, idx_mul, idx_div, idx_mod;
 	bool has_add, has_sub, has_mul, has_div, has_mod;
 
-	idx_add = strnfind(buffer, stringLen, '+'); has_add = (bool) (idx_add >= 0);
-	idx_sub = strnfind(buffer, stringLen, '-'); has_sub = (bool) (idx_sub >= 0);
-	idx_mul = strnfind(buffer, stringLen, '*'); has_mul = (bool) (idx_mul >= 0);
-	idx_div = strnfind(buffer, stringLen, '/'); has_div = (bool) (idx_div >= 0);
-	idx_mod = strnfind(buffer, stringLen, '%'); has_mod = (bool) (idx_mod >= 0);
+	idx_add = strnfind(buffer, stringLen, '+'); has_add = (bool) (idx_add > 0);
+	idx_sub = strnfind(buffer, stringLen, '-'); has_sub = (bool) (idx_sub > 0);
+	idx_mul = strnfind(buffer, stringLen, '*'); has_mul = (bool) (idx_mul > 0);
+	idx_div = strnfind(buffer, stringLen, '/'); has_div = (bool) (idx_div > 0);
+	idx_mod = strnfind(buffer, stringLen, '%'); has_mod = (bool) (idx_mod > 0);
+
+	if (idx_mul == 0 || idx_div == 0 || idx_mod == 0)
+		goto MissingNumberError;
 
 	bool has_any = (has_add || has_sub || has_mul || has_div || has_mod);
 
@@ -457,11 +570,18 @@ ExitNominal:
 	return ret;
 
 
+MissingNumberError:
+	// Input can't be parsed
+	ERROR("One side of the operation is missing a number%c", '\n');
+	goto FreeAndExit;
+
 InvalidInputError:
 	// Input can't be parsed
 	ERROR("Invalid input !! '%s'\n", buffer);
 
 SubFunctionError:
+FreeAndExit:
+	free(buffer); buffer = NULL;
 	free_equation_t(ret);
 	return NULL;
 }

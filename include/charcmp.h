@@ -26,6 +26,16 @@ static inline short int isNumber(char c)
 	return isdigit(c) || c == '.';
 }
 
+static inline short int isSign(char c)
+{
+	return c == '+' || c == '-';
+}
+
+static inline short int isBinary(char c)
+{
+	return c == '0' || c == '1';
+}
+
 
 static inline short int isValidChar(char c)
 {
